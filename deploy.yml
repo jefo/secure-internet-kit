@@ -1,0 +1,242 @@
+---
+# deploy.yml — Ansible playbook for deploying hardening + TrustTunnel on remote VPS
+# Usage:
+#   ansible-playbook -i inventory.ini deploy.yml
+#   ansible-playbook -i inventory.ini deploy.yml --extra-vars "ssh_port=3333"
+#   ansible-playbook -i inventory.ini deploy.yml --step  # interactive step-by-step
+#
+# Prerequisites on control machine:
+#   sudo apt install ansible
+#
+# inventory.ini format:
+#   [vpn_servers]
+#   <server_ip> ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_ed25519
+#   # Or if password auth (only for initial setup):
+#   # <server_ip> ansible_user=root ansible_password=yourpassword
+
+- name: Deploy Secure Internet Kit with security hardening
+  hosts: vpn_servers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # ── Customize these ──────────────────────────────────
+    ssh_port: 22
+    admin_user: vpnadmin
+    install_dir: /opt/trusttunnel
+    listen_port: 443
+
+    # SSH public key to add to admin user (REQUIRED)
+    ssh_pubkey: ""
+
+    # Let's Encrypt (set to enable step 09)
+    tls_domain: ""
+    tls_email: ""
+
+    # TrustTunnel credentials (step 08)
+    tt_username: pc
+    tt_password: ""  # Leave empty to auto-generate
+
+    # Whether to skip step09 TLS and use self-signed cert (default: yes)
+    use_self_signed_cert: true
+
+    # ── Which steps to run ───────────────────────────────
+    # Set to false to skip a step
+    harden_step01_create_user: true
+    harden_step02_harden_ssh: true
+    harden_step03_firewall: true
+    harden_step04_fail2ban: true
+    harden_step05_auto_updates: true
+    harden_step06_sysctl: true
+    harden_step07_install_trusttunnel: true
+    harden_step08_configure_trusttunnel: true
+    harden_step09_tls: false  # Set true + provide tls_domain + tls_email
+    harden_step10_service: true
+
+  tasks:
+    # ── Upload scripts ─────────────────────────────────────
+    - name: Create scripts directory on remote
+      file:
+        path: "/tmp/secure-internet-kit-harden/scripts/harden"
+        state: directory
+        mode: "0755"
+
+    - name: Upload hardening scripts
+      copy:
+        src: "scripts/harden/{{ item }}"
+        dest: "/tmp/secure-internet-kit-harden/scripts/harden/{{ item }}"
+        mode: "0755"
+      with_items:
+        - lib.sh
+        - run.sh
+        - step01_create_user.sh
+        - step02_harden_ssh.sh
+        - step03_setup_firewall.sh
+        - step04_setup_fail2ban.sh
+        - step05_auto_updates.sh
+        - step06_sysctl_hardening.sh
+        - step07_install_trusttunnel.sh
+        - step08_configure_trusttunnel.sh
+        - step09_setup_tls.sh
+        - step10_setup_service.sh
+
+    # ── Step 01: Create admin user ──────────────────────
+    - name: "Step 01 — Create admin user"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step01_create_user.sh --run
+      environment:
+        ADMIN_USER: "{{ admin_user }}"
+        SSH_PUBKEY: "{{ ssh_pubkey }}"
+      when: harden_step01_create_user and ssh_pubkey != ""
+      tags: step01
+
+    - name: "Step 01 — WARNING: No SSH key provided"
+      fail:
+        msg: >
+          ssh_pubkey variable is required for step 01.
+          Set it in vars or pass --extra-vars "ssh_pubkey=ssh-ed25519 AAAA..."
+      when: harden_step01_create_user and ssh_pubkey == ""
+      tags: step01
+
+    # ── Step 02: Harden SSH ─────────────────────────────
+    - name: "Step 02 — Harden SSH configuration"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step02_harden_ssh.sh --run
+      environment:
+        SSH_PORT: "{{ ssh_port | string }}"
+        ADMIN_USER: "{{ admin_user }}"
+      when: harden_step02_harden_ssh
+      tags: step02
+
+    # ── Step 03: Firewall ───────────────────────────────
+    - name: "Step 03 — Setup firewall (UFW)"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step03_setup_firewall.sh --run
+      environment:
+        SSH_PORT: "{{ ssh_port | string }}"
+      when: harden_step03_firewall
+      tags: step03
+
+    # ── Step 04: Fail2ban ───────────────────────────────
+    - name: "Step 04 — Setup Fail2ban"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step04_setup_fail2ban.sh --run
+      environment:
+        SSH_PORT: "{{ ssh_port | string }}"
+      when: harden_step04_fail2ban
+      tags: step04
+
+    # ── Step 05: Auto updates ───────────────────────────
+    - name: "Step 05 — Enable automatic security updates"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step05_auto_updates.sh --run
+      when: harden_step05_auto_updates
+      tags: step05
+
+    # ── Step 06: Sysctl ─────────────────────────────────
+    - name: "Step 06 — Sysctl hardening"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step06_sysctl_hardening.sh --run
+      when: harden_step06_sysctl
+      tags: step06
+
+    # ── Step 07: Install TrustTunnel ────────────────────
+    - name: "Step 07 — Install TrustTunnel endpoint"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step07_install_trusttunnel.sh --run
+      environment:
+        INSTALL_DIR: "{{ install_dir }}"
+      when: harden_step07_install_trusttunnel
+      tags: step07
+
+    # ── Step 08: Configure TrustTunnel ──────────────────
+    - name: "Step 08 — Configure TrustTunnel"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step08_configure_trusttunnel.sh --run
+      environment:
+        INSTALL_DIR: "{{ install_dir }}"
+        LISTEN_PORT: "{{ listen_port | string }}"
+        TT_USERNAME: "{{ tt_username }}"
+        TT_PASSWORD: "{{ tt_password }}"
+      when: harden_step08_configure_trusttunnel
+      tags: step08
+
+    # ── Step 09: TLS (optional) ─────────────────────────
+    - name: "Step 09 — Setup TLS certificate"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step09_setup_tls.sh --run
+      environment:
+        INSTALL_DIR: "{{ install_dir }}"
+        TLS_DOMAIN: "{{ tls_domain }}"
+        TLS_EMAIL: "{{ tls_email }}"
+      when: not use_self_signed_cert and harden_step09_tls and tls_domain != "" and tls_email != ""
+      tags: step09
+
+    # ── Step 10: Systemd service ────────────────────────
+    - name: "Step 10 — Setup systemd service + lockdown"
+      shell: >
+        bash /tmp/secure-internet-kit-harden/scripts/harden/step10_setup_service.sh --run
+      environment:
+        INSTALL_DIR: "{{ install_dir }}"
+      when: harden_step10_service
+      tags: step10
+
+    # ── Generate client config ──────────────────────────
+    - name: "Generate full client config from endpoint"
+      shell: >
+        cd {{ install_dir }} &&
+        ./trusttunnel_endpoint vpn.toml hosts.toml
+        -c {{ tt_username }} -a {{ ansible_host }}
+        --format toml > /tmp/tt_endpoint.toml &&
+        cat /tmp/tt_endpoint.toml
+      register: endpoint_config
+      tags: client_config
+
+    - name: "Build full client TOML config"
+      copy:
+        dest: "/tmp/trusttunnel_client.toml"
+        content: |
+          # Secure Internet Kit Client Configuration
+          # Generated: {{ ansible_date_time.iso8601 | default('unknown') }}
+
+          loglevel = "info"
+          vpn_mode = "general"
+          killswitch_enabled = true
+          killswitch_allow_ports = []
+          post_quantum_group_enabled = true
+          exclusions = []
+
+          [endpoint]
+          {{ endpoint_config.stdout | regex_replace('\n', '\n  ') | default('') }}
+
+          [listener.tun]
+          included_routes = ["0.0.0.0/0"]
+          excluded_routes = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+          mtu_size = 1280
+          change_system_dns = true
+        mode: "0644"
+      tags: client_config
+
+    - name: "Fetch client config to local machine"
+      fetch:
+        src: "/tmp/trusttunnel_client.toml"
+        dest: "{{ playbook_dir }}/client_config.toml"
+        flat: yes
+      tags: client_config
+
+    # ── Post-deployment info ────────────────────────────
+    - name: Show deployment summary
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════╗
+          ║   Secure Internet Kit VPS deployed successfully!          ║
+          ║                                                       ║
+          ║   SSH: ssh -p {{ ssh_port }} root@{{ ansible_host }}              ║
+          ║   Endpoint: https://{{ ansible_host }}:{{ listen_port }}              ║
+          ║                                                       ║
+          ║   Client config: {{ playbook_dir }}/client_config.toml        ║
+          ║   To connect:                                          ║
+          ║     sudo trusttunnel_client -c client_config.toml     ║
+          ║                                                       ║
+          ║   Credentials: user={{ tt_username }} pass=SEE credentials.toml  ║
+          ╚═══════════════════════════════════════════════════════╝

@@ -1,0 +1,10 @@
+vpn_mode = "general"
+# Список того, что должно идти НАПРЯМУЮ (bypass VPN)
+exclusions = [
+    "sberbank.ru",
+    "gosuslugi.ru",
+    "tinkoff.ru",
+    "avito.ru",
+    "yandex.ru",
+    "*.ru"
+]

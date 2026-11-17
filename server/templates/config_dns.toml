@@ -1,0 +1,11 @@
+# В начале файла или в секции DNS
+dns_upstreams = [
+    "https://dns.adguard-dns.com/dns-query",
+    "https://cloudflare-dns.com/dns-query",
+    "https://dns.google/dns-query"
+]
+
+[listener.tun]
+# Обязательно включите это, чтобы Windows использовала наши DNS
+change_system_dns = true
+# ... остальные настройки TUN ...

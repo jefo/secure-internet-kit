@@ -1,0 +1,26 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Ansible
+inventory.ini
+*.retry
+
+# Generated client material
+client/profiles/
+client/builds/
+client/dist/
+*.toml
+!server/*.toml
+!server/templates/*.toml
+
+# Secrets
+credentials.toml
+rules.toml
+*.pem
+*.key
+
+# Logs and OS noise
+*.log
+.DS_Store

@@ -1,0 +1,7 @@
+# Secure Internet Kit — TLS hosts configuration
+# Copy to /opt/trusttunnel/hosts.toml and replace vpn.example.com with your domain.
+
+[[main_hosts]]
+hostname = "vpn.example.com"
+cert_chain_path = "/etc/letsencrypt/live/vpn.example.com/fullchain.pem"
+private_key_path = "/etc/letsencrypt/live/vpn.example.com/privkey.pem"

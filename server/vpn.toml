@@ -1,0 +1,17 @@
+# Secure Internet Kit - Core Configuration Template
+# Скопируйте этот файл в /opt/trusttunnel/vpn.toml после деплоя
+
+listen_address = "0.0.0.0:443"
+ipv6_available = false
+allow_private_network_connections = false
+tls_handshake_timeout_secs = 10
+credentials_file = "credentials.toml"
+rules_file = "rules.toml"
+
+[listen_protocols.http2]
+initial_connection_window_size = 8388608
+max_concurrent_streams = 1000
+
+[listen_protocols.quic]
+enable_early_data = true
+max_connection_window = 25165824
