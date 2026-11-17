@@ -32,13 +32,16 @@
     # Let's Encrypt (set to enable step 09)
     tls_domain: ""
     tls_email: ""
+    # Address written into the client config: domain for TLS, IP as fallback.
+    client_address: "{{ tls_domain if tls_domain | length > 0 else ansible_host }}"
 
     # TrustTunnel credentials (step 08)
     tt_username: pc
     tt_password: ""  # Leave empty to auto-generate
 
-    # Whether to skip step09 TLS and use self-signed cert (default: yes)
-    use_self_signed_cert: true
+    # Use a self-signed cert only when no domain is provided. With a domain,
+    # step 09 obtains a Let's Encrypt certificate.
+    use_self_signed_cert: false
 
     # ── Which steps to run ───────────────────────────────
     # Set to false to skip a step
@@ -50,7 +53,7 @@
     harden_step06_sysctl: true
     harden_step07_install_trusttunnel: true
     harden_step08_configure_trusttunnel: true
-    harden_step09_tls: false  # Set true + provide tls_domain + tls_email
+    harden_step09_tls: true   # Runs when tls_domain and tls_email are set
     harden_step10_service: true
 
   tasks:
@@ -186,7 +189,7 @@
       shell: >
         cd {{ install_dir }} &&
         ./trusttunnel_endpoint vpn.toml hosts.toml
-        -c {{ tt_username }} -a {{ ansible_host }}
+        -c {{ tt_username }} -a {{ client_address }}
         --format toml > /tmp/tt_endpoint.toml &&
         cat /tmp/tt_endpoint.toml
       register: endpoint_config

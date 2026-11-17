@@ -122,7 +122,9 @@ cp inventory.example.ini inventory.ini
 ansible-playbook -i inventory.ini deploy.yml \
   --extra-vars "ssh_pubkey='$(cat ~/.ssh/id_ed25519.pub)' \
                 tls_domain=vpn.example.com \
-                tls_email=you@example.com"
+                tls_email=you@example.com \
+                use_self_signed_cert=false \
+                harden_step09_tls=true"
 ```
 
 **Вариант B — bootstrap на свежем VPS:**

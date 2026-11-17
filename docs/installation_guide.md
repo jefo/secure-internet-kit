@@ -11,9 +11,9 @@
 
 1. Уточнить список устройств (Windows/macOS/Android)
 2. Сгенерировать учетные данные:
+   ```bash
+   sudo VPN_DOMAIN=vpn.example.com bash scripts/generate_client.sh client_name pro
    ```
-   trusttunnel_endpoint vpn.toml hosts.toml -c client_name -a vpn-XXX.yourdomain.com
-   ```
-3. Скопировать полученную ссылку `tt://....`
+3. Скопировать полученную ссылку `tt://....` или QR
 4. Установить CLI-клиент или мобильное приложение
 5. **Важно:** Проверить, что в Китае/РФ/других зонах с цензурой включен протокол QUIC (HTTP/3) — он быстрее и сложнее блокируется

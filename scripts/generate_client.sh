@@ -55,7 +55,7 @@ case "$TIER" in
         echo "━━━ TOML config for existing user: pc ━━━"
         "$INSTALL_DIR/trusttunnel_endpoint" "$INSTALL_DIR/$VPN_CONFIG" "$INSTALL_DIR/$HOSTS_CONFIG" \
             -c "pc" \
-            -a "$TARGET_HOST:443" \
+            -a "$VPN_DOMAIN:443" \
             --format toml
         exit 0
         ;;
